@@ -7,6 +7,11 @@
 * [resnet](ML_advanced/resnet.ipynb)
 * [pretrained resnet](ML_advanced/resnet_pretrained.ipynb)
 
+### Lab 3
+
+### Lab 4
+* (breakout)[ML_advanced/breakout.ipynb]
+
 ## Tasks
 ### Task 1
 * [activation](ML_advanced/activation.ipynb)
