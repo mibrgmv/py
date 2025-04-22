@@ -10,7 +10,7 @@
 ### Lab 3
 
 ### Lab 4
-* (breakout)[ML_advanced/breakout.ipynb]
+* [breakout](ML_advanced/breakout.ipynb)
 
 ## Tasks
 ### Task 1
