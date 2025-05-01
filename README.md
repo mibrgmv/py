@@ -12,6 +12,9 @@
 ### Lab 4
 * [breakout](ML_advanced/breakout.ipynb)
 
+### Lab 5
+* [hyperparameters](ML_advanced/hyperparameters.ipynb)
+
 ## Tasks
 ### Task 1
 * [activation](ML_advanced/activation.ipynb)
