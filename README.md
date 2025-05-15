@@ -21,3 +21,6 @@
 
 ### Task 2
 * [optimizers and schedulers](ML_advanced/optimizers_schedulers.ipynb)
+
+### Task 5
+* [svg generation comparison](https://pickled-curtain-dcd.notion.site/zadanie_5-1f4ce5687daa80b791a8eb95f109bc4a?pvs=4)
