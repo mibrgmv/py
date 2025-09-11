@@ -1,26 +1,14 @@
-# Advanced ML
-## Labs
-### Lab 1
-* [dropout_batchnorm](ML_advanced/dropout_batchnorm.ipynb)
+## ml (s5)
 
-### Lab 2
-* [resnet](ML_advanced/resnet.ipynb)
-* [pretrained resnet](ML_advanced/resnet_pretrained.ipynb)
+## advanced ml (s6)
 
-### Lab 3
+|# |labs                                                |tasks                                                                                                                |
+|--|--|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+|1 |[dropout_batchnorm](ML_advanced/dropout_batchnorm.ipynb)                                       |[activation](ML_advanced/activation.ipynb)                                |
+|2 |[resnet](ML_advanced/resnet.ipynb) and [pretrained resnet](ML_advanced/resnet_pretrained.ipynb)|[optimizers and schedulers](ML_advanced/optimizers_schedulers.ipynb)      |
+|3 |                                                                                               |                                                                          |
+|4 |[breakout](ML_advanced/breakout.ipynb)              |                                                                                                                     |
+|5 |[hyperparameters](ML_advanced/hyperparameters.ipynb)|[svg generation comparison](https://pickled-curtain-dcd.notion.site/zadanie_5-1f4ce5687daa80b791a8eb95f109bc4a?pvs=4)|
+|6 | X                                                  |                                                                                                                     |
 
-### Lab 4
-* [breakout](ML_advanced/breakout.ipynb)
-
-### Lab 5
-* [hyperparameters](ML_advanced/hyperparameters.ipynb)
-
-## Tasks
-### Task 1
-* [activation](ML_advanced/activation.ipynb)
-
-### Task 2
-* [optimizers and schedulers](ML_advanced/optimizers_schedulers.ipynb)
-
-### Task 5
-* [svg generation comparison](https://pickled-curtain-dcd.notion.site/zadanie_5-1f4ce5687daa80b791a8eb95f109bc4a?pvs=4)
+## intellectual systems and technologies (s7)
