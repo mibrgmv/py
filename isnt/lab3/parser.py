@@ -1,133 +1,167 @@
-import re
 import pandas as pd
-import os
+import re
+import time
+from typing import List
+from datetime import datetime
+
+DEFAULT_PAGES = 5
 
 
-def parse(texts):
-    all_results = []
+def expand_page_range(start, end, reverse=False):
+    start_num = int(re.search(r'\d+', start).group())
+    start_has_ob = 'об' in start.lower()
 
-    pattern = r'([А-ЯЁA-Z]+ \d+)[,\s]+л\.\s*([^);]+(?:\([^)]+\)[^);]*)*)'
+    end_num = int(re.search(r'\d+', end).group())
+    end_has_ob = 'об' in end.lower()
 
-    for text_num, text in enumerate(texts, 1):
-        text_results = []
-        matches = re.finditer(pattern, text)
+    result = []
 
-        for match in matches:
-            doc_code = match.group(1)
-            pages_info = match.group(2)
+    if reverse:
+        if not start_has_ob:
+            result.append(str(start_num))
+            start_num -= 1
 
-            pages_info_clean = re.sub(r'\([^)]*\)', '', pages_info)
+        for page in range(start_num, end_num, -1):
+            result.append(f"{page} об.")
+            if page > end_num:
+                result.append(str(page))
 
-            page_sequences = parse_page_sequences(pages_info_clean)
+        if end_has_ob:
+            result.append(f"{end_num} об.")
+    else:
+        if start_has_ob:
+            result.append(f"{start_num} об.")
+            start_num += 1
 
-            for sequence in page_sequences:
-                pages = expand_page_sequence(sequence)
-                for page in pages:
-                    full_code = f"{doc_code} л. {page}"
-                    text_results.append(full_code)
+        for page in range(start_num, end_num):
+            result.append(str(page))
+            result.append(f"{page} об.")
 
-        seen = set()
-        unique_results = []
-        for item in text_results:
-            if item not in seen:
-                seen.add(item)
-                unique_results.append(item)
+        if start_num <= end_num:
+            result.append(str(end_num))
+            if end_has_ob:
+                result.append(f"{end_num} об.")
 
-        all_results.append({
-            'text_number': text_num,
-            'codes': '; '.join(unique_results)
-        })
-
-    return pd.DataFrame(all_results)
-
-
-def parse_page_sequences(pages_text):
-    """
-    Разбивает текст с информацией о страницах на отдельные последовательности
-    Пример: "20 об. — 23, 40 об. — 41" -> [('20', 'об.', '23', ''), ('40', 'об.', '41', '')]
-    """
-    sequences = []
-
-    parts = re.split(r'[;,]', pages_text)
-
-    for part in parts:
-        part = part.strip()
-        if not part:
-            continue
-
-        range_match = re.search(r'(\d+)(?:\s*([а-яё]+))?(?:\s*[—\-]\s*(\d+)(?:\s*([а-яё]+))?)?', part)
-
-        if range_match:
-            start_num = range_match.group(1)
-            start_side = range_match.group(2) or ''
-            end_num = range_match.group(3)
-            end_side = range_match.group(4) or ''
-
-            sequences.append((start_num, start_side, end_num, end_side))
-
-    return sequences
+    return result
 
 
-def expand_page_sequence(sequence):
-    """
-    Преобразует последовательность страниц в полный список
-    Пример: ('20', 'об.', '23', '') -> ['20 об.', '21', '21 об.', '22', '22 об.', '23']
-    """
-    start_num, start_side, end_num, end_side = sequence
+def expand_default_pages(num_pages=DEFAULT_PAGES):
+    result = []
+    for page in range(1, num_pages + 1):
+        result.append(str(page))
+        result.append(f"{page} об.")
+    return result
 
-    # Если нет конечной страницы - возвращаем только начальную
-    if not end_num:
-        return [f"{start_num} {start_side}".strip()]
 
-    start_num = int(start_num)
-    end_num = int(end_num)
+def parse_single_archive(archive_num, pages_text):
+    result = []
 
-    pages = []
-    current_num = start_num
+    # нет листов – ПД 123
+    if not pages_text or pages_text.strip() == '':
+        pages = expand_default_pages(DEFAULT_PAGES)
+        for page in pages:
+            result.append(f"ПД {archive_num} л. {page}")
+        return result
 
-    while current_num <= end_num:
-        if current_num == start_num and start_side:
-            pages.append(f"{current_num} {start_side}")
-            if start_side == 'об.' and current_num < end_num:
-                pages.append(str(current_num + 1))
+    # Находим все упоминания л. [что-то]
+    # Убираем комментарии в скобках
+    pages_text = re.sub(r'\([^)]*\)', '', pages_text)
 
-        elif current_num == end_num and end_side:
-            pages.append(f"{current_num} {end_side}")
+    # Ищем все вхождения "л. [число/диапазон]"
+    # Паттерн: л. и дальше цифры, "об.", тире, запятые до следующего "л." или конца
+    pattern = r'л\.\s*([\d]+(?:\s*об\.)?(?:\s*[—–\-]\s*[\d]+(?:\s*об\.)?)?)'
 
+    matches = re.finditer(pattern, pages_text, re.IGNORECASE)
+
+    for match in matches:
+        page_spec = match.group(1).strip()
+        page_spec = page_spec.replace('—', '-').replace('–', '-')
+
+        # Проверяем диапазон
+        if '-' in page_spec:
+            parts = re.split(r'\s*-\s*', page_spec)
+            if len(parts) == 2:
+                start = parts[0].strip()
+                end = parts[1].strip()
+
+                start_num = int(re.search(r'\d+', start).group())
+                end_num = int(re.search(r'\d+', end).group())
+
+                reverse = start_num > end_num
+                expanded = expand_page_range(start, end, reverse)
+
+                for page in expanded:
+                    result.append(f"ПД {archive_num} л. {page}")
         else:
-            pages.append(str(current_num))
-            if current_num < end_num:
-                pages.append(f"{current_num} об.")
+            # Одиночный лист
+            result.append(f"ПД {archive_num} л. {page_spec}")
 
-        current_num += 1
+    # Если ничего не нашли, значит нет листов
+    if not result:
+        pages = expand_default_pages(DEFAULT_PAGES)
+        for page in pages:
+            result.append(f"ПД {archive_num} л. {page}")
 
-    return pages
+    return result
 
 
-def load_texts_from_directory(directory_path):
-    texts = []
-    for filename in sorted(os.listdir(directory_path)):
-        if filename.endswith('.txt'):
-            with open(os.path.join(directory_path, filename), 'r', encoding='utf-8') as f:
-                texts.append(f.read())
-    return texts
+def parse_cipher(text: str) -> List[str]:
+    if pd.isna(text):
+        return []
+
+    result = []
+
+    # комментарии в скобках
+    text_clean = re.sub(r'\([^)]*\)', '', text)
+
+    # ПД [число] и всё до следующего ПД или точки с запятой или конца
+    pattern = r'(?:в\s+тетр\.\s+)?ПД\s+(\d+)(.*?)(?=(?:\bПД\s+\d+|;|$))'
+
+    matches = re.finditer(pattern, text_clean, re.IGNORECASE | re.DOTALL)
+
+    for match in matches:
+        archive_num = match.group(1)
+        pages_context = match.group(2)
+        archive_results = parse_single_archive(archive_num, pages_context)
+        result.extend(archive_results)
+
+    # сложные форматы: ПД, ф. 244, оп. 1, Прилож. № 7
+    # pattern_complex = r'ПД,\s*ф\.\s*(\d+),\s*оп\.\s*(\d+),\s*Прилож\.\s*№\s*(\d+)'
+    # matches_complex = re.finditer(pattern_complex, text_clean, re.IGNORECASE)
+    #
+    # for match in matches_complex:
+    #     f_num = match.group(1)
+    #     op_num = match.group(2)
+    #     pril_num = match.group(3)
+    #     result.append(f"ПД ф. {f_num} оп. {op_num} Прилож. № {pril_num}")
+
+    return result
 
 
 def main():
-    input_dir = "articles"
-    texts = load_texts_from_directory(input_dir)
-
-    print("Обрабатываю тексты...")
-    df = parse(texts)
-
+    start_time = time.time()
+    input_file = "variant_4.csv"
     output_file = "result.csv"
-    df.to_csv(output_file, sep=';', index=False, encoding='utf-8')
-    print(f"Результаты сохранены в {output_file}")
-    print(f"Обработано текстов: {len(df)}")
 
-    print("\nПервые 5 строк результата:")
-    for i, row in df.head().iterrows():
-        print(f"Текст {row['text_number']}: {row['codes'][:100]}...")
+    df = pd.read_csv(input_file)
+    results = []
+
+    for idx, row in df.iterrows():
+        text_index = row['index']
+        text_content = row['autographs']
+
+        ciphers = parse_cipher(text_content)
+        ciphers_str = '; '.join(ciphers) + ';' if ciphers else ''
+
+        results.append({
+            'index': text_index,
+            'ciphers': ciphers_str
+        })
+
+    result_df = pd.DataFrame(results)
+    result_df.to_csv(output_file, index=False, encoding='utf-8')
+    end_time = time.time()
+    print(f"execution time: {(end_time - start_time):.4f} seconds")
 
 
 if __name__ == "__main__":
