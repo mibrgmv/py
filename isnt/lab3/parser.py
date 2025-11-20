@@ -16,7 +16,6 @@ def expand_page_range(start, end, reverse=False):
     result = []
 
     if reverse:
-        # Для обратного порядка (редкий случай)
         if not start_has_ob:
             result.append(str(start_num))
             start_num -= 1
@@ -29,34 +28,23 @@ def expand_page_range(start, end, reverse=False):
         if end_has_ob:
             result.append(f"{end_num} об.")
     else:
-        # Для нормального порядка - ИСПРАВЛЕННАЯ ЛОГИКА
-        current = start_num
-
-        while current <= end_num:
-            # Первая страница диапазона
-            if current == start_num:
+        for page_num in range(start_num, end_num + 1):
+            if page_num == start_num:
                 if start_has_ob:
-                    result.append(f"{current} об.")
+                    result.append(f"{page_num} об.")
                 else:
-                    result.append(str(current))
-                    # Если это не последняя страница, добавляем оборот
-                    if current < end_num:
-                        result.append(f"{current} об.")
-
-            # Последняя страница диапазона
-            elif current == end_num:
+                    result.append(str(page_num))
+                    if page_num < end_num:
+                        result.append(f"{page_num} об.")
+            elif page_num == end_num:
                 if end_has_ob:
-                    result.append(str(current))
-                    result.append(f"{current} об.")
+                    result.append(str(page_num))
+                    result.append(f"{page_num} об.")
                 else:
-                    result.append(str(current))
-
-            # Промежуточные страницы
+                    result.append(str(page_num))
             else:
-                result.append(str(current))
-                result.append(f"{current} об.")
-
-            current += 1
+                result.append(str(page_num))
+                result.append(f"{page_num} об.")
 
     return result
 
@@ -78,51 +66,29 @@ def parse_single_archive(archive_num, pages_text):
             result.append(f"ПД {archive_num} л. {page}")
         return result
 
-    # Удаляем комментарии в скобках
-    pages_text_clean = re.sub(r'\([^)]*\)', '', pages_text)
+    pattern = r'(\d+\s*об\.?(?:\s*[—–\-]\s*\d+\s*об?\.?)?|\d+(?:\s*[—–\-]\s*\d+)?)'
+    matches = re.finditer(pattern, pages_text)
 
-    # Разбиваем по запятым
-    parts = [p.strip() for p in pages_text_clean.split(',')]
+    for match in matches:
+        page_spec = match.group(1).strip()
+        page_spec = page_spec.replace('—', '-').replace('–', '-')
 
-    for part in parts:
-        if not part:
-            continue
+        if '-' in page_spec:
+            parts = re.split(r'\s*-\s*', page_spec)
+            if len(parts) == 2:
+                start = parts[0].strip()
+                end = parts[1].strip()
 
-        # Ищем "л. число/диапазон"
-        if 'л.' in part.lower():
-            pattern = r'л\.\s*([\d]+(?:\s*об\.)?(?:\s*[—–\-]\s*[\d]+(?:\s*об\.)?)?)'
-            matches = re.finditer(pattern, part, re.IGNORECASE)
+                start_num = int(re.search(r'\d+', start).group())
+                end_num = int(re.search(r'\d+', end).group())
 
-            for match in matches:
-                page_spec = match.group(1).strip()
-                page_spec = page_spec.replace('—', '-').replace('–', '-')
+                reverse = start_num > end_num
+                expanded = expand_page_range(start, end, reverse)
 
-                if '-' in page_spec:
-                    splits = re.split(r'\s*-\s*', page_spec)
-                    if len(splits) == 2:
-                        start = splits[0].strip()
-                        end = splits[1].strip()
-
-                        start_num = int(re.search(r'\d+', start).group())
-                        end_num = int(re.search(r'\d+', end).group())
-
-                        reverse = start_num > end_num
-                        expanded = expand_page_range(start, end, reverse)
-
-                        for page in expanded:
-                            result.append(f"ПД {archive_num} л. {page}")
-                else:
-                    result.append(f"ПД {archive_num} л. {page_spec}")
+                for page in expanded:
+                    result.append(f"ПД {archive_num} л. {page}")
         else:
-            # Просто число без "л." (например ", 50" или ", 26")
-            match_num = re.search(r'^\s*(\d+)\s*(об\.)?', part)
-            if match_num:
-                num = match_num.group(1)
-                has_ob = match_num.group(2) is not None
-                if has_ob:
-                    result.append(f"ПД {archive_num} л. {num} об.")
-                else:
-                    result.append(f"ПД {archive_num} л. {num}")
+            result.append(f"ПД {archive_num} л. {page_spec}")
 
     if not result:
         pages = expand_default_pages(DEFAULT_PAGES)
@@ -132,18 +98,11 @@ def parse_single_archive(archive_num, pages_text):
     return result
 
 
-def parse_cipher(text: str) -> List[str]:
-    if pd.isna(text):
-        return []
-
+def parse_cipher(text):
     result = []
-
-    # комментарии в скобках
     text_clean = re.sub(r'\([^)]*\)', '', text)
 
-    # ПД [число] и всё до следующего ПД или точки с запятой или конца
     pattern = r'(?:в\s+тетр\.\s+)?ПД\s+(\d+)(.*?)(?=(?:\bПД\s+\d+|;|$))'
-
     matches = re.finditer(pattern, text_clean, re.IGNORECASE | re.DOTALL)
 
     for match in matches:
@@ -169,8 +128,8 @@ def parse_cipher(text: str) -> List[str]:
 
 def main():
     start_time = time.time()
-    input_file = "test.csv"
-    output_file = "test_result.csv"
+    input_file = "variant_4.csv"
+    output_file = "result.csv"
 
     df = pd.read_csv(input_file)
     results = []
@@ -195,7 +154,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# todo ПД 391 — ПД 412
-# todo 4 текст 842 неправильный промежуток
-# todo ПД 845, л. 3 об. — 4, 50
